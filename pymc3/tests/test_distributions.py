@@ -1486,7 +1486,6 @@ class TestMatchesScipy:
             lambda value, alpha, beta: sp.exponweib.logcdf(value, 1, alpha, scale=beta),
         )
 
-    @pytest.mark.xfail(reason="Distribution not refactored yet")
     def test_half_studentt(self):
         # this is only testing for nu=1 (halfcauchy)
         self.check_logp(
