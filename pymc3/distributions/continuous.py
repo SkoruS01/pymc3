@@ -2709,6 +2709,21 @@ class Weibull(PositiveContinuous):
         )
 
 
+class HalfStudentTRV(RandomVariable):
+    name = "halfstudentt"
+    ndim_supp = 0
+    ndims_params = [0, 0]
+    dtype = "floatX"
+    _print_name = ("HalfStudentT", "\\operatorname{HalfStudentT}")
+
+    @classmethod
+    def rng_fn(cls, rng, nu=1, sigma=None, size=None):
+        return np.abs(stats.t.rvs(nu, 0, sigma, size=size, random_state=rng))
+
+
+halfstudentt = HalfStudentTRV()
+
+
 class HalfStudentT(PositiveContinuous):
     r"""
     Half Student's T log-likelihood
@@ -2767,45 +2782,25 @@ class HalfStudentT(PositiveContinuous):
             x = pm.HalfStudentT('x', lam=4, nu=10)
     """
 
-    def __init__(self, nu=1, sigma=None, lam=None, sd=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    rv_op = halfstudentt
+
+    @classmethod
+    def dist(cls, nu=1, lam=None, sigma=None, sd=None, *args, **kwargs):
         if sd is not None:
             sigma = sd
 
-        self.mode = at.as_tensor_variable(0)
         lam, sigma = get_tau_sigma(lam, sigma)
-        self.median = at.as_tensor_variable(sigma)
-        self.sigma = self.sd = at.as_tensor_variable(sigma)
-        self.lam = at.as_tensor_variable(lam)
-        self.nu = nu = at.as_tensor_variable(floatX(nu))
+        sigma = at.as_tensor_variable(sigma)
+        lam = at.as_tensor_variable(lam)
+        nu = at.as_tensor_variable(floatX(nu))
 
         assert_negative_support(sigma, "sigma", "HalfStudentT")
         assert_negative_support(lam, "lam", "HalfStudentT")
         assert_negative_support(nu, "nu", "HalfStudentT")
 
-    def random(self, point=None, size=None):
-        """
-        Draw random values from HalfStudentT distribution.
+        return super().dist([nu, sigma], **kwargs)
 
-        Parameters
-        ----------
-        point: dict, optional
-            Dict of variable values on which random values are to be
-            conditioned (uses default point if not specified).
-        size: int, optional
-            Desired size of random sample (returns one sample if not
-            specified).
-
-        Returns
-        -------
-        array
-        """
-        # nu, sigma = draw_values([self.nu, self.sigma], point=point, size=size)
-        # return np.abs(
-        #     generate_samples(stats.t.rvs, nu, loc=0, scale=sigma, dist_shape=self.shape, size=size)
-        # )
-
-    def logp(self, value):
+    def logp(value, nu, sigma):
         """
         Calculate log-probability of HalfStudentT distribution at specified value.
 
@@ -2819,10 +2814,8 @@ class HalfStudentT(PositiveContinuous):
         -------
         TensorVariable
         """
-        nu = self.nu
-        sigma = self.sigma
-        lam = self.lam
 
+        lam, sigma = get_tau_sigma(sigma=sigma)
         return bound(
             at.log(2)
             + gammaln((nu + 1.0) / 2.0)
@@ -2834,9 +2827,6 @@ class HalfStudentT(PositiveContinuous):
             nu > 0,
             value >= 0,
         )
-
-    def _distr_parameters_for_repr(self):
-        return ["nu", "lam"]
 
 
 class ExGaussian(Continuous):
